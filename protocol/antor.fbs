@@ -1,0 +1,35 @@
+// Antor wire schema. flatc generates the C++ and C# message code from this file.
+// Do not hand-edit generated output.
+//
+// This file is the payload only. TCP framing is a little-endian uint32 length
+// prefix in front of one Packet, defined in the server frame codec and the
+// C# FrameCodec. The cap is 65536 payload bytes on both sides.
+//
+// protocol_version defaults to 1. Keep that default in lockstep with
+// antor::protocol::kProtocolVersion and Antor.Protocol.ProtocolVersion.Current.
+
+namespace Antor.Protocol;
+
+file_identifier "ANTR";
+
+table Hello {
+  protocol_version:uint16 = 1;
+  client_nonce:uint32 = 0;
+}
+
+table HelloAck {
+  protocol_version:uint16 = 1;
+  server_nonce:uint32 = 0;
+  client_nonce:uint32 = 0;
+}
+
+union Body {
+  Hello,
+  HelloAck
+}
+
+table Packet {
+  body:Body;
+}
+
+root_type Packet;

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Antor.Protocol</RootNamespace>
+    <Description>C# messages generated from protocol/antor.fbs.</Description>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Generated/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Antor.FlatBuffers/Antor.FlatBuffers.csproj" />
+  </ItemGroup>
+
+  <Target Name="GenerateProtocol" BeforeTargets="CoreCompile">
+    <Exec Command="python3 &quot;$(RepoRoot)/tools/fetch_flatbuffers.py&quot;" />
+    <RemoveDir Directories="Generated" />
+    <MakeDir Directories="Generated" />
+    <Exec Command="&quot;$(RepoRoot)/.deps/flatbuffers/flatc&quot; --csharp -o &quot;$(MSBuildProjectDirectory)/Generated&quot; &quot;$(RepoRoot)/protocol/antor.fbs&quot;" />
+    <ItemGroup>
+      <Compile Include="Generated/**/*.cs" />
+    </ItemGroup>
+  </Target>
+</Project>
