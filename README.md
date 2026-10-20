@@ -7,6 +7,7 @@ protocol/antor.fbs          schema, the only hand-written protocol definition
 server/                     C++20 simulation host; TCP is one transport
 client/                     C# class libraries (no game-engine host)
 docs/ARCHITECTURE.md        threading, ownership, networking, open decisions
+docs/AI-WORLD.md            generative AI: proposals, budgets, director
 ```
 
 ## Prerequisites
@@ -65,4 +66,4 @@ The client is three class libraries plus the generated messages. There is no sta
 | `client/src/Antor.FlatBuffers` | C# FlatBuffers runtime from the pinned tag |
 | `client/src/Antor.Protocol.Generated` | `flatc --csharp` output, not committed |
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the session boundary, why the running server still speaks TCP, and the decisions that are intentionally not made yet.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the session boundary, why the running server still speaks TCP, and the decisions that are intentionally not made yet. [docs/AI-WORLD.md](docs/AI-WORLD.md) is the design for generative AI on top of that scaffold: the model proposes, the sim disposes, and a missed budget falls back to authored content.
