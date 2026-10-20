@@ -1,6 +1,6 @@
-#include "antor/net/net_thread.hpp"
+#include "antor/transport/tcp/poll_transport.hpp"
 
-#include "antor/net/frame.hpp"
+#include "antor/transport/tcp/frame.hpp"
 
 #include <cerrno>
 #include <cstring>
@@ -10,16 +10,26 @@
 #include <optional>
 #include <poll.h>
 #include <span>
+#include <stdexcept>
+#include <sys/eventfd.h>
 #include <sys/socket.h>
+#include <system_error>
 #include <unistd.h>
+#include <utility>
 #include <vector>
 
-namespace antor::net {
+namespace antor::transport::tcp {
 namespace {
 
 constexpr std::size_t kMaxConnections = 1024;
 constexpr std::size_t kMaxQueuedOutbound = 1024 * 1024;
 constexpr int kPollTimeoutMs = 200;
+
+using antor::transport::Channel;
+using antor::transport::InboundEvent;
+using antor::transport::InboundQueue;
+using antor::transport::OutboundCommand;
+using antor::transport::OutboundQueue;
 
 struct Connection {
     Socket socket;
@@ -28,7 +38,7 @@ struct Connection {
     std::size_t in_pos = 0;
     std::vector<std::byte> outbound;
     std::size_t out_pos = 0;
-    std::optional<NetToSim> pending;
+    std::optional<InboundEvent> pending;
     bool closing = false;
 };
 
@@ -42,13 +52,13 @@ void begin_close(Connection& connection) {
     connection.in_pos = 0;
     connection.outbound.clear();
     connection.out_pos = 0;
-    NetToSim closed;
-    closed.type = NetToSim::Type::SessionClosed;
+    InboundEvent closed;
+    closed.type = InboundEvent::Type::SessionClosed;
     closed.session = connection.session;
     connection.pending = std::move(closed);
 }
 
-bool flush_pending(Connection& connection, NetToSimQueue& inbound) {
+bool flush_pending(Connection& connection, InboundQueue& inbound) {
     if (!connection.pending) {
         return true;
     }
@@ -87,7 +97,7 @@ void compact_inbound(Connection& connection) {
     }
 }
 
-void ingest(Connection& connection, NetToSimQueue& inbound) {
+void ingest(Connection& connection, InboundQueue& inbound) {
     if (connection.closing || connection.pending) {
         return;
     }
@@ -101,9 +111,10 @@ void ingest(Connection& connection, NetToSimQueue& inbound) {
             begin_close(connection);
             return;
         }
-        NetToSim message;
-        message.type = NetToSim::Type::Packet;
+        InboundEvent message;
+        message.type = InboundEvent::Type::Packet;
         message.session = connection.session;
+        message.channel = Channel::reliable();
         message.bytes.assign(frame.payload.begin(), frame.payload.end());
         connection.in_pos += frame.consumed;
         if (!inbound.try_push(std::move(message))) {
@@ -114,7 +125,7 @@ void ingest(Connection& connection, NetToSimQueue& inbound) {
     compact_inbound(connection);
 }
 
-void read_socket(Connection& connection, NetToSimQueue& inbound) {
+void read_socket(Connection& connection, InboundQueue& inbound) {
     if (connection.closing || connection.pending || !connection.socket.valid()) {
         return;
     }
@@ -183,15 +194,16 @@ std::optional<std::size_t> find_session(const std::vector<Connection>& connectio
     return std::nullopt;
 }
 
-void apply_outbound(std::vector<Connection>& connections, SimToNetQueue& outbound) {
-    SimToNet message;
+void apply_outbound(std::vector<Connection>& connections, OutboundQueue& outbound) {
+    OutboundCommand message;
     while (outbound.try_pop(message)) {
         const auto index = find_session(connections, message.session);
         if (!index) {
             continue;
         }
         Connection& connection = connections[*index];
-        if (message.type == SimToNet::Type::Disconnect || connection.closing) {
+        if (connection.closing || message.type == OutboundCommand::Type::Disconnect ||
+            message.type != OutboundCommand::Type::Send || !is_reliable_ordered(message.channel)) {
             begin_close(connection);
             continue;
         }
@@ -238,9 +250,10 @@ void accept_clients(Socket& listen,
         Connection connection;
         connection.socket = Socket(fd);
         connection.session = next_session++;
-        NetToSim opened;
-        opened.type = NetToSim::Type::SessionOpened;
+        InboundEvent opened;
+        opened.type = InboundEvent::Type::SessionOpened;
         opened.session = connection.session;
+        opened.channel = Channel::reliable();
         connection.pending = std::move(opened);
         connections.push_back(std::move(connection));
     }
@@ -267,20 +280,42 @@ void drain_wake(int wake_fd) {
 
 } // namespace
 
-void run_net(std::stop_token stop,
-             Socket listen,
-             OwnedFd wake,
-             NetToSimQueue& inbound,
-             SimToNetQueue& outbound) {
+TcpPollTransport::TcpPollTransport(std::string host, std::uint16_t port)
+    : host_(std::move(host)), requested_port_(port) {}
+
+TcpPollTransport::TcpPollTransport(TcpPollTransport&& other) noexcept
+    : host_(std::move(other.host_)), requested_port_(other.requested_port_), port_(other.port_),
+      listen_(std::move(other.listen_)), wake_(std::move(other.wake_)),
+      bound_(std::exchange(other.bound_, false)) {}
+
+void TcpPollTransport::bind() {
+    if (bound_) {
+        throw std::logic_error("tcp transport already bound");
+    }
+    listen_ = Socket::listen_tcp(host_, requested_port_);
+    port_ = listen_.local_port();
+    const int wake_fd = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+    if (wake_fd < 0) {
+        throw std::system_error(errno, std::generic_category(), "eventfd");
+    }
+    wake_ = OwnedFd(wake_fd);
+    bound_ = true;
+}
+
+void TcpPollTransport::run(std::stop_token stop, InboundQueue& inbound, OutboundQueue& outbound) {
+    if (!bound_ || !listen_.valid() || !wake_.valid()) {
+        throw std::logic_error("tcp transport is not bound");
+    }
+
     std::vector<Connection> connections;
     connections.reserve(64);
     std::vector<pollfd> pollfds;
     pollfds.reserve(66);
     std::uint64_t next_session = 1;
 
-    const std::stop_callback wake_on_stop(stop, [&wake] {
+    const std::stop_callback wake_on_stop(stop, [this] {
         const std::uint64_t one = 1;
-        const ssize_t written = ::write(wake.get(), &one, sizeof(one));
+        const ssize_t written = ::write(wake_.get(), &one, sizeof(one));
         static_cast<void>(written);
     });
 
@@ -293,8 +328,8 @@ void run_net(std::stop_token stop,
         sweep(connections);
 
         pollfds.clear();
-        pollfds.push_back(pollfd{listen.fd(), POLLIN, 0});
-        pollfds.push_back(pollfd{wake.get(), POLLIN, 0});
+        pollfds.push_back(pollfd{listen_.fd(), POLLIN, 0});
+        pollfds.push_back(pollfd{wake_.get(), POLLIN, 0});
         std::vector<std::size_t> polled;
         polled.reserve(connections.size());
         for (std::size_t i = 0; i < connections.size(); ++i) {
@@ -332,13 +367,13 @@ void run_net(std::stop_token stop,
             continue;
         }
         if ((pollfds[1].revents & (POLLIN | POLLERR | POLLHUP)) != 0) {
-            drain_wake(wake.get());
+            drain_wake(wake_.get());
         }
         if (stop.stop_requested()) {
             break;
         }
         if ((pollfds[0].revents & POLLIN) != 0) {
-            accept_clients(listen, connections, next_session);
+            accept_clients(listen_, connections, next_session);
         }
         for (std::size_t n = 0; n < polled.size(); ++n) {
             const short revents = pollfds[n + 2].revents;
@@ -360,4 +395,4 @@ void run_net(std::stop_token stop,
     }
 }
 
-} // namespace antor::net
+} // namespace antor::transport::tcp

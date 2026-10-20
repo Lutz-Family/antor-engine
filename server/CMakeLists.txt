@@ -2,8 +2,9 @@ add_library(antor_core
   src/config.cpp
   src/server.cpp
   src/protocol/codec.cpp
-  src/net/socket.cpp
-  src/net/net_thread.cpp
+  src/transport/tcp/socket.cpp
+  src/transport/tcp/poll_transport.cpp
+  src/transport/loopback.cpp
   src/sim/sim_thread.cpp
   src/zone/zone.cpp
   src/zone/interest.cpp
@@ -36,6 +37,7 @@ add_executable(antor_tests
   tests/codec_test.cpp
   tests/interest_test.cpp
   tests/session_test.cpp
+  tests/loopback_test.cpp
 )
 target_link_libraries(antor_tests PRIVATE antor_core)
 target_include_directories(antor_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tests")

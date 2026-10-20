@@ -18,6 +18,7 @@ struct DecodedPacket {
 };
 
 // FlatBuffers codec owned by one thread. The builder is reused across calls.
+// Payloads are unframed. The transport adds whatever envelope its channel uses.
 class Codec {
 public:
     Codec();

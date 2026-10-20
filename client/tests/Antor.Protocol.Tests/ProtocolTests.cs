@@ -37,9 +37,11 @@ public class ProtocolTests
     public void Assembler_FeedsOneByteAtATime()
     {
         using var codec = new PacketCodec();
-        var frame = new byte[256];
-        var written = codec.WriteHello(frame, ProtocolVersion.Current, 0xABCDu);
-        Assert.True(written > 0);
+        var payload = new byte[256];
+        var payloadLength = codec.WriteHello(payload, ProtocolVersion.Current, 0xABCDu);
+        Assert.True(payloadLength > 0);
+        var frame = new byte[payloadLength + FrameCodec.HeaderSize];
+        Assert.True(FrameCodec.TryWrite(frame, payload.AsSpan(0, payloadLength), out var written));
 
         var storage = new byte[FrameCodec.HeaderSize + FrameCodec.MaxPayloadLength];
         var assembler = new FrameAssembler(storage);
@@ -72,9 +74,9 @@ public class ProtocolTests
         for (var i = 0; i < 32; i++)
         {
             var warmHello = codec.WriteHello(buffer, ProtocolVersion.Current, 7);
-            Assert.True(codec.TryDecode(buffer.AsSpan(FrameCodec.HeaderSize, warmHello - FrameCodec.HeaderSize), out _));
+            Assert.True(codec.TryDecode(buffer.AsSpan(0, warmHello), out _));
             var warmAck = codec.WriteHelloAck(buffer, ProtocolVersion.Current, 8, 7);
-            Assert.True(codec.TryDecode(buffer.AsSpan(FrameCodec.HeaderSize, warmAck - FrameCodec.HeaderSize), out _));
+            Assert.True(codec.TryDecode(buffer.AsSpan(0, warmAck), out _));
         }
 
         var before = GC.GetAllocatedBytesForCurrentThread();
@@ -82,13 +84,13 @@ public class ProtocolTests
         for (var i = 0; i < 1000; i++)
         {
             var helloBytes = codec.WriteHello(buffer, ProtocolVersion.Current, 0xA11CEu);
-            if (!codec.TryDecode(buffer.AsSpan(FrameCodec.HeaderSize, helloBytes - FrameCodec.HeaderSize), out var hello))
+            if (!codec.TryDecode(buffer.AsSpan(0, helloBytes), out var hello))
             {
                 throw new InvalidOperationException("Hello did not decode.");
             }
 
             var ackBytes = codec.WriteHelloAck(buffer, ProtocolVersion.Current, 3, hello.ClientNonce);
-            if (!codec.TryDecode(buffer.AsSpan(FrameCodec.HeaderSize, ackBytes - FrameCodec.HeaderSize), out var ack))
+            if (!codec.TryDecode(buffer.AsSpan(0, ackBytes), out var ack))
             {
                 throw new InvalidOperationException("HelloAck did not decode.");
             }

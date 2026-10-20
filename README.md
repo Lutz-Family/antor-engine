@@ -4,7 +4,7 @@ Antor is an MMO. This repository is the engine skeleton: an authoritative C++ se
 
 ```
 protocol/antor.fbs          schema, the only hand-written protocol definition
-server/                     C++20 simulation and TCP session host
+server/                     C++20 simulation host; TCP is one transport
 client/                     C# class libraries (no game-engine host)
 docs/ARCHITECTURE.md        threading, ownership, networking, open decisions
 ```
@@ -50,19 +50,19 @@ dotnet test --configuration Release
 ANTOR_SERVER_BIN=$PWD/../build/debug/antor-server dotnet test --configuration Release
 ```
 
-The client is three class libraries plus the generated messages. There is no standalone game executable: a future Unity or Godot host is expected to call `ClientConnection.ConnectAndHandshakeAsync`.
+The client is three class libraries plus the generated messages. There is no standalone game executable. A future Unity or Godot host calls `ClientConnection.ConnectAndHandshakeAsync`, which is a `FramedTransport` over a TCP socket. `HandshakeClient.ExchangeAsync` takes an `ITransport`, so a different transport does not change the handshake.
 
 ## Layout
 
 | Path | Role |
 | --- | --- |
 | `protocol/antor.fbs` | `Hello` / `HelloAck` schema |
-| `server/include` | Public server types: queues, frames, zone, interest, codec |
-| `server/src` | Net thread, sim thread, process entry |
-| `server/tests` | C++ tests, including an in-process handshake |
-| `client/src/Antor.Protocol` | Framing and the reused FlatBuffers codec |
-| `client/src/Antor.Net` | TCP connection and handshake |
+| `server/include` | Session bus, TCP transport, loopback transport, zone, codec |
+| `server/src` | Sim thread, TCP worker, process entry |
+| `server/tests` | C++ tests, including TCP and in-memory handshakes |
+| `client/src/Antor.Protocol` | Unframed codec and the length-prefix helper |
+| `client/src/Antor.Net` | `ITransport`, TCP socket, framed transport, handshake |
 | `client/src/Antor.FlatBuffers` | C# FlatBuffers runtime from the pinned tag |
 | `client/src/Antor.Protocol.Generated` | `flatc --csharp` output, not committed |
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the threading model, why the session channel is TCP, and the decisions that are intentionally not made yet.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the session boundary, why the running server still speaks TCP, and the decisions that are intentionally not made yet.

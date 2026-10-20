@@ -7,6 +7,8 @@ void test_frame();
 void test_codec();
 void test_interest();
 void test_session();
+void test_session_bus_overflow();
+void test_loopback_handshake();
 
 int main() {
     int failed = 0;
@@ -17,5 +19,7 @@ int main() {
     failed += antor::test::run_test("codec", test_codec);
     failed += antor::test::run_test("interest", test_interest);
     failed += antor::test::run_test("session", test_session);
+    failed += antor::test::run_test("session_bus", test_session_bus_overflow);
+    failed += antor::test::run_test("loopback", test_loopback_handshake);
     return failed == 0 ? 0 : 1;
 }

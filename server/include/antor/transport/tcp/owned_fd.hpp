@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <utility>
 
-namespace antor::net {
+namespace antor::transport::tcp {
 
 class OwnedFd {
 public:
@@ -39,4 +39,4 @@ private:
     int fd_ = -1;
 };
 
-} // namespace antor::net
+} // namespace antor::transport::tcp

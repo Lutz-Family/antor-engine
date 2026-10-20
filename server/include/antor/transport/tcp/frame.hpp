@@ -7,7 +7,7 @@
 #include <span>
 #include <vector>
 
-namespace antor::net {
+namespace antor::transport::tcp {
 
 static_assert(std::endian::native == std::endian::little,
               "v0 framing writes native uint32 as little-endian");
@@ -65,4 +65,4 @@ inline bool write_frame(std::vector<std::byte>& out, std::span<const std::byte> 
     return true;
 }
 
-} // namespace antor::net
+} // namespace antor::transport::tcp

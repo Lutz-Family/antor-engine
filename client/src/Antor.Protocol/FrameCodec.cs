@@ -4,7 +4,7 @@ namespace Antor.Protocol;
 
 /// <summary>
 /// Length-prefixed frames: little-endian uint32 payload length, then the payload.
-/// The same layout is implemented by <c>antor::net::write_frame</c>.
+/// The same layout is implemented by <c>antor::transport::tcp::write_frame</c>.
 /// </summary>
 public static class FrameCodec
 {

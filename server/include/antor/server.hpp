@@ -1,7 +1,7 @@
 #pragma once
 
 #include "antor/config.hpp"
-#include "antor/runtime/messages.hpp"
+#include "antor/transport/events.hpp"
 
 #include <cstdint>
 #include <optional>
@@ -9,9 +9,10 @@
 
 namespace antor {
 
-// Owns the listen lifecycle. After start(), the net thread owns sockets and
-// the sim thread owns zone state. This object only shares the two queues and
-// the stop tokens with those threads.
+// Owns the process lifecycle. After start(), the transport thread owns its
+// sockets and the sim thread owns zone state. This object shares the two
+// session queues and the stop tokens with those threads. The queues are the
+// only cross-thread session state.
 class Server {
 public:
     explicit Server(ServerConfig config);
@@ -34,8 +35,8 @@ private:
     ServerConfig config_;
     std::uint16_t port_ = 0;
     bool started_ = false;
-    NetToSimQueue to_sim_;
-    SimToNetQueue to_net_;
+    transport::InboundQueue to_sim_;
+    transport::OutboundQueue to_net_;
     std::optional<std::jthread> sim_;
     std::optional<std::jthread> net_;
 };

@@ -1,7 +1,7 @@
-#include "antor/net/frame.hpp"
 #include "antor/protocol/codec.hpp"
 #include "antor/protocol/version.hpp"
 #include "antor/server.hpp"
+#include "antor/transport/tcp/frame.hpp"
 #include "test_harness.hpp"
 
 #include <arpa/inet.h>
@@ -114,12 +114,12 @@ ReadStatus read_frame(int fd, std::vector<std::byte>& payload, std::chrono::mill
             return ReadStatus::Closed;
         }
         buffer.insert(buffer.end(), tmp, tmp + n);
-        antor::net::FrameView view;
-        const auto status = antor::net::inspect_frame(buffer, view);
-        if (status == antor::net::FrameStatus::NeedMore) {
+        antor::transport::tcp::FrameView view;
+        const auto status = antor::transport::tcp::inspect_frame(buffer, view);
+        if (status == antor::transport::tcp::FrameStatus::NeedMore) {
             continue;
         }
-        if (status == antor::net::FrameStatus::Error) {
+        if (status == antor::transport::tcp::FrameStatus::Error) {
             throw std::runtime_error("bad frame from server");
         }
         payload.assign(view.payload.begin(), view.payload.end());
@@ -131,7 +131,7 @@ ReadStatus read_frame(int fd, std::vector<std::byte>& payload, std::chrono::mill
 void send_hello(int fd, antor::protocol::Codec& codec, std::uint16_t version, std::uint32_t nonce) {
     const auto payload = codec.hello(version, nonce);
     std::vector<std::byte> frame;
-    if (!antor::net::write_frame(frame, payload)) {
+    if (!antor::transport::tcp::write_frame(frame, payload)) {
         throw std::runtime_error("failed to frame hello");
     }
     send_all(fd, frame);

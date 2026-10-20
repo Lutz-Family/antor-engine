@@ -27,9 +27,10 @@ public readonly struct DecodedPacket
 }
 
 /// <summary>
-/// Builds and reads handshake packets without allocating on the steady-state path.
+/// Builds and reads unframed handshake payloads without allocating on the steady-state path.
 /// One instance is owned by one caller; it is not thread-safe.
 /// The FlatBuffer builder, verifier, and decode scratch buffer are reused.
+/// The length prefix is applied by the transport, not here.
 /// </summary>
 public sealed class PacketCodec : IDisposable
 {
@@ -134,6 +135,12 @@ public sealed class PacketCodec : IDisposable
     {
         var data = _builder.DataBuffer;
         var segment = data.ToArraySegment(data.Position, _builder.Offset);
-        return FrameCodec.TryWrite(destination, segment.AsSpan(), out var written) ? written : 0;
+        if (segment.Count == 0 || destination.Length < segment.Count)
+        {
+            return 0;
+        }
+
+        segment.AsSpan().CopyTo(destination);
+        return segment.Count;
     }
 }

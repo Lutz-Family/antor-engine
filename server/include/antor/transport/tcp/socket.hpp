@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string>
 
-namespace antor::net {
+namespace antor::transport::tcp {
 
 class Socket {
 public:
@@ -28,4 +28,4 @@ private:
     int fd_ = -1;
 };
 
-} // namespace antor::net
+} // namespace antor::transport::tcp

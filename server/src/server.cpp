@@ -1,16 +1,17 @@
 #include "antor/server.hpp"
 
-#include "antor/net/net_thread.hpp"
 #include "antor/sim/sim_thread.hpp"
+#include "antor/transport/tcp/poll_transport.hpp"
 
-#include <cerrno>
 #include <stdexcept>
-#include <sys/eventfd.h>
-#include <system_error>
 #include <utility>
 
 namespace antor {
 
+// Composition root. run_sim speaks the session bus only. The worker installed
+// here is the TCP poll transport. Swapping it for another worker (the
+// loopback endpoint in tests, a future datagram transport) does not change
+// the sim thread.
 Server::Server(ServerConfig config) : config_(std::move(config)) {}
 
 Server::~Server() {
@@ -26,13 +27,9 @@ void Server::start() {
         throw std::invalid_argument("tick must be positive");
     }
 
-    net::Socket listen_socket = net::Socket::listen_tcp(config_.bind_host, config_.port);
-    const int wake_fd = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    if (wake_fd < 0) {
-        throw std::system_error(errno, std::generic_category(), "eventfd");
-    }
-    net::OwnedFd wake(wake_fd);
-    port_ = listen_socket.local_port();
+    transport::tcp::TcpPollTransport transport(config_.bind_host, config_.port);
+    transport.bind();
+    port_ = transport.port();
 
     auto& inbound = to_sim_;
     auto& outbound = to_net_;
@@ -41,11 +38,8 @@ void Server::start() {
         sim::run_sim(stop, config, inbound, outbound);
     });
     try {
-        net_.emplace(
-            [listen_socket = std::move(listen_socket), wake = std::move(wake), &inbound, &outbound](
-                std::stop_token stop) mutable {
-                net::run_net(stop, std::move(listen_socket), std::move(wake), inbound, outbound);
-            });
+        net_.emplace([transport = std::move(transport), &inbound, &outbound](
+                         std::stop_token stop) mutable { transport.run(stop, inbound, outbound); });
     } catch (...) {
         if (sim_) {
             sim_->request_stop();

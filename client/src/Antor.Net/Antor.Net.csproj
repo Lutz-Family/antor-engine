@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <RootNamespace>Antor.Net</RootNamespace>
-    <Description>Engine-agnostic TCP session client for Antor.</Description>
+    <Description>Engine-agnostic session client for Antor. TCP is one transport.</Description>
   </PropertyGroup>
 
   <ItemGroup>

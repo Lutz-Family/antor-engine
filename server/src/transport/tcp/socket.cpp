@@ -1,4 +1,4 @@
-#include "antor/net/socket.hpp"
+#include "antor/transport/tcp/socket.hpp"
 
 #include <arpa/inet.h>
 #include <cerrno>
@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <utility>
 
-namespace antor::net {
+namespace antor::transport::tcp {
 
 Socket::Socket(int fd) noexcept : fd_(fd) {}
 
@@ -73,4 +73,4 @@ Socket Socket::listen_tcp(const std::string& host, std::uint16_t port) {
     return socket;
 }
 
-} // namespace antor::net
+} // namespace antor::transport::tcp
