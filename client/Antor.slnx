@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Antor.FlatBuffers/Antor.FlatBuffers.csproj" />
+    <Project Path="src/Antor.Net/Antor.Net.csproj" />
+    <Project Path="src/Antor.Protocol.Generated/Antor.Protocol.Generated.csproj" />
+    <Project Path="src/Antor.Protocol/Antor.Protocol.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Antor.Net.Tests/Antor.Net.Tests.csproj" />
+    <Project Path="tests/Antor.Protocol.Tests/Antor.Protocol.Tests.csproj" />
+  </Folder>
+</Solution>

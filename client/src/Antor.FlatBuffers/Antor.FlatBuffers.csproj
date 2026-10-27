@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Google.FlatBuffers</RootNamespace>
+    <Description>FlatBuffers C# runtime compiled from the same tag as flatc.</Description>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <NoWarn>$(NoWarn);CS8981;CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="$(RepoRoot)/.deps/**" />
+  </ItemGroup>
+
+  <Target Name="CompileFlatBuffersRuntime" BeforeTargets="CoreCompile">
+    <Exec Command="python3 &quot;$(RepoRoot)/tools/fetch_flatbuffers.py&quot;" />
+    <ItemGroup>
+      <Compile Include="$(RepoRoot)/.deps/flatbuffers/src/net/FlatBuffers/*.cs" />
+    </ItemGroup>
+  </Target>
+</Project>

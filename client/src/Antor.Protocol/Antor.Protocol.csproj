@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Antor.Protocol</RootNamespace>
+    <Description>Framing and allocation-conscious FlatBuffers codec for Antor.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Antor.Protocol.Generated/Antor.Protocol.Generated.csproj" />
+  </ItemGroup>
+</Project>

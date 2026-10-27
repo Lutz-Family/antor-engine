@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: Linux server and client
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build cmake g++ python3
+
+      - name: Configure, build, and test the server with sanitizers
+        run: |
+          cmake --preset sanitizer
+          cmake --build --preset sanitizer
+          ctest --preset sanitizer
+
+      - name: Configure, build, and test the release server
+        run: |
+          cmake --preset release
+          cmake --build --preset release
+          ctest --preset release
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: client/global.json
+
+      - name: Test the client
+        working-directory: client
+        env:
+          ANTOR_SERVER_BIN: ${{ github.workspace }}/build/sanitizer/antor-server
+        run: dotnet test --configuration Release

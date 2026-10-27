@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Antor.Net</RootNamespace>
+    <Description>Engine-agnostic session client for Antor. TCP is one transport.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Antor.Protocol/Antor.Protocol.csproj" />
+  </ItemGroup>
+</Project>
